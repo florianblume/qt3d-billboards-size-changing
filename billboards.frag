@@ -8,8 +8,6 @@ in vec2 texCoord;
 
 out vec4 fragColor;
 
-#pragma include light.inc.frag
-
 void main()
 {
     // Image is flipped
