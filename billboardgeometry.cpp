@@ -60,7 +60,6 @@ void BillboardGeometry::setPoints(const QVector<QVector3D> &vertices)
     }
     mInstanceCount = vertices.count();
     mInstanceBuffer->setData( vertexBufferData );
-    qDebug() << vertexBufferData;
 
     mPositionAttribute->setCount( mInstanceCount );
 
