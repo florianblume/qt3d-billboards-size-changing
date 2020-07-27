@@ -2,6 +2,5 @@
     <qresource prefix="/shaders">
         <file>billboards.frag</file>
         <file>billboards.vert</file>
-        <file>light.inc.frag</file>
     </qresource>
 </RCC>
