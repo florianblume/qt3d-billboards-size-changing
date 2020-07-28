@@ -30,6 +30,8 @@
 #include <Qt3DRender/QGraphicsApiFilter>
 #include <Qt3DExtras/QTextureMaterial>
 
+#include <Qt3DRender/QSceneLoader>
+
 #include <Qt3DRender/QAttribute>
 
 #include <QSurfaceFormat>
@@ -47,6 +49,71 @@ Qt3DExtras::QFirstPersonCameraController * cameraController;
 
 int windowWidth = 1600;
 int windowHeight = 800;
+
+Qt3DCore::QEntity *createBillboard(Qt3DCore::QEntity *root, QVector3D position) {
+    // Add Billboard
+    Qt3DCore::QEntity *billboardEntity = new Qt3DCore::QEntity(root);
+
+    // Create billboard geometry
+    QVector<QVector3D> pos;
+    pos << QVector3D(0, 0, 0);
+    BillboardGeometry *billboardGeometry = new BillboardGeometry(billboardEntity);
+    billboardGeometry->setPoints(pos);
+    Qt3DRender::QGeometryRenderer *billboardRenderer = new Qt3DRender::QGeometryRenderer(billboardEntity);
+    billboardRenderer->setGeometry(billboardGeometry);
+    billboardRenderer->setInstanceCount(billboardGeometry->count());
+
+    Qt3DCore::QTransform *billboardTransform = new Qt3DCore::QTransform(billboardEntity);
+    billboardTransform->setTranslation(position);
+    billboardTransform->setRotationX(90);
+
+    // Image of billboard material
+    Qt3DRender::QMaterial *billboardMaterial = new Qt3DRender::QMaterial(billboardEntity);
+    QMatrix4x4 inst = QMatrix4x4(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1);
+    Qt3DRender::QParameter *billboardParam1 = new Qt3DRender::QParameter(QStringLiteral("inst"), inst);
+    Qt3DRender::QParameter *billboardParam2 = new Qt3DRender::QParameter(QStringLiteral("instNormal"), BillboardGeometry::normalMatrix((QMatrix4x4(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1))));
+    billboardMaterial->addParameter(billboardParam1);
+    billboardMaterial->addParameter(billboardParam2);
+    Qt3DRender::QTexture2D* texture = new Qt3DRender::QTexture2D();
+    Qt3DRender::QTextureImage* textureImage = new Qt3DRender::QTextureImage(texture);
+    textureImage->setSource(QUrl(QStringLiteral("qrc:/success-kid.png")));
+    texture->addTextureImage(textureImage);
+    Qt3DRender::QParameter* billboardParam3 = new Qt3DRender::QParameter(QStringLiteral("tex0"), texture);
+    billboardMaterial->addParameter(billboardParam3);
+    Qt3DRender::QParameter *cameraPosParameter = new Qt3DRender::QParameter(QStringLiteral("cameraPos"), QVector3D(0, 0, 0));
+    Qt3DRender::QParameter *cameraUpParameter = new Qt3DRender::QParameter(QStringLiteral("cameraUp"), QVector3D(0, 0, 0));
+    billboardMaterial->addParameter(cameraPosParameter);
+    billboardMaterial->addParameter(cameraUpParameter);
+
+    // Effect of material
+    Qt3DRender::QEffect* billboardEffect = new Qt3DRender::QEffect();
+    Qt3DRender::QTechnique* billboardTechnique = new Qt3DRender::QTechnique();
+    billboardTechnique->graphicsApiFilter()->setApi(Qt3DRender::QGraphicsApiFilter::OpenGL);
+    billboardTechnique->graphicsApiFilter()->setProfile(Qt3DRender::QGraphicsApiFilter::CoreProfile);
+    billboardTechnique->graphicsApiFilter()->setMajorVersion(3);
+    billboardTechnique->graphicsApiFilter()->setMinorVersion(1);
+    // You need the filter key because the QForwardRenderer employed as the default framegraph by the Qt3DWindow
+    // extends QTechniqueFilter and filters for this key exactly. Without it, the material gets discarded.
+    Qt3DRender::QFilterKey* filterKey = new Qt3DRender::QFilterKey(billboardMaterial);
+    filterKey->setName(QStringLiteral("renderingStyle"));
+    filterKey->setValue(QStringLiteral("forward"));
+    billboardTechnique->addFilterKey(filterKey);
+    Qt3DRender::QRenderPass* billboardRenderPass = new Qt3DRender::QRenderPass();
+    Qt3DRender::QShaderProgram* billboardShaderProgram = new Qt3DRender::QShaderProgram();
+    billboardShaderProgram->setVertexShaderCode(Qt3DRender::QShaderProgram::loadSource(QUrl("qrc:/shaders/billboards.vert")));
+    //billboardShaderProgram->setGeometryShaderCode(Qt3DRender::QShaderProgram::loadSource(QUrl("qrc:/shaders/billboards.geom")));
+    billboardShaderProgram->setFragmentShaderCode(Qt3DRender::QShaderProgram::loadSource(QUrl("qrc:/shaders/billboards.frag")));
+    billboardRenderPass->setShaderProgram(billboardShaderProgram);
+    billboardTechnique->addRenderPass(billboardRenderPass);
+    billboardEffect->addTechnique(billboardTechnique);
+    billboardMaterial->setEffect(billboardEffect);
+
+    billboardEntity->addComponent(billboardRenderer);
+    billboardEntity->addComponent(billboardMaterial);
+    billboardEntity->addComponent(billboardTransform);
+
+    return billboardEntity;
+}
 
 int main(int argc, char* argv[])
 {
@@ -88,83 +155,14 @@ int main(int argc, char* argv[])
     cubeEntity->addComponent(cubeMaterial);
     cubeEntity->addComponent(cubeTransform);
 
-    // Add Billboard
-    Qt3DCore::QEntity *billboardEntity = new Qt3DCore::QEntity(root);
-
-    // Create billboard geometry
-    QVector<QVector3D> pos;
-    pos << QVector3D(1, 1, 0);
-    pos << QVector3D(-1, 2, 4);
-    pos << QVector3D(1, 1, 1);
-    pos << QVector3D(0, 7, 2);
-    pos << QVector3D(0, 10, 0);
-    pos << QVector3D(3, 0, 3);
-    pos << QVector3D(0, 3, 2);
-    BillboardGeometry *billboardGeometry = new BillboardGeometry(billboardEntity);
-    billboardGeometry->setPoints(pos);
-    Qt3DRender::QGeometryRenderer *billboardRenderer = new Qt3DRender::QGeometryRenderer(billboardEntity);
-    billboardRenderer->setGeometry(billboardGeometry);
-    billboardRenderer->setInstanceCount(billboardGeometry->count());
-
-    Qt3DCore::QTransform *billboardTransform = new Qt3DCore::QTransform(billboardEntity);
-    billboardTransform->setTranslation(QVector3D(0., 4.5, 0.));
-    billboardTransform->setRotationX(90);
-
     // Billboard material
-
-    // Image of billboard material
-    Qt3DRender::QMaterial *billboardMaterial = new Qt3DRender::QMaterial(billboardEntity);
-    QMatrix4x4 inst = QMatrix4x4(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1);
-    Qt3DRender::QParameter *billboardParam1 = new Qt3DRender::QParameter(QStringLiteral("inst"), inst);
-    Qt3DRender::QParameter *billboardParam2 = new Qt3DRender::QParameter(QStringLiteral("instNormal"), BillboardGeometry::normalMatrix((QMatrix4x4(1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1))));
-    billboardMaterial->addParameter(billboardParam1);
-    billboardMaterial->addParameter(billboardParam2);
-    Qt3DRender::QTexture2D* texture = new Qt3DRender::QTexture2D();
-    Qt3DRender::QTextureImage* textureImage = new Qt3DRender::QTextureImage(texture);
-    textureImage->setSource(QUrl(QStringLiteral("qrc:/success-kid.png")));
-    texture->addTextureImage(textureImage);
-    Qt3DRender::QParameter* billboardParam3 = new Qt3DRender::QParameter(QStringLiteral("tex0"), texture);
-    billboardMaterial->addParameter(billboardParam3);
-    Qt3DRender::QParameter *cameraPosParameter = new Qt3DRender::QParameter(QStringLiteral("cameraPos"), QVector3D(0, 0, 0));
-    Qt3DRender::QParameter *cameraUpParameter = new Qt3DRender::QParameter(QStringLiteral("cameraUp"), QVector3D(0, 0, 0));
-    billboardMaterial->addParameter(cameraPosParameter);
-    billboardMaterial->addParameter(cameraUpParameter);
-
-    // Parameters of billboard material
-    /*
-    Qt3DRender::QParameter* billboardParam2 = new Qt3DRender::QParameter(QStringLiteral("WIN_SCALE"), QSize(1600, 800));
-    Qt3DRender::QParameter* billboardParam3 = new Qt3DRender::QParameter(QStringLiteral("BB_SIZE"), QSize(100, 100));
-    billboardMaterial->addParameter(billboardParam1);
-    billboardMaterial->addParameter(billboardParam2);
-    billboardMaterial->addParameter(billboardParam3);
-    */
-
-    // Effect of material
-    Qt3DRender::QEffect* billboardEffect = new Qt3DRender::QEffect();
-    Qt3DRender::QTechnique* billboardTechnique = new Qt3DRender::QTechnique();
-    billboardTechnique->graphicsApiFilter()->setApi(Qt3DRender::QGraphicsApiFilter::OpenGL);
-    billboardTechnique->graphicsApiFilter()->setProfile(Qt3DRender::QGraphicsApiFilter::CoreProfile);
-    billboardTechnique->graphicsApiFilter()->setMajorVersion(3);
-    billboardTechnique->graphicsApiFilter()->setMinorVersion(1);
-    // You need the filter key because the QForwardRenderer employed as the default framegraph by the Qt3DWindow
-    // extends QTechniqueFilter and filters for this key exactly. Without it, the material gets discarded.
-    Qt3DRender::QFilterKey* filterKey = new Qt3DRender::QFilterKey(billboardMaterial);
-    filterKey->setName(QStringLiteral("renderingStyle"));
-    filterKey->setValue(QStringLiteral("forward"));
-    billboardTechnique->addFilterKey(filterKey);
-    Qt3DRender::QRenderPass* billboardRenderPass = new Qt3DRender::QRenderPass();
-    Qt3DRender::QShaderProgram* billboardShaderProgram = new Qt3DRender::QShaderProgram();
-    billboardShaderProgram->setVertexShaderCode(Qt3DRender::QShaderProgram::loadSource(QUrl("qrc:/shaders/billboards.vert")));
-    //billboardShaderProgram->setGeometryShaderCode(Qt3DRender::QShaderProgram::loadSource(QUrl("qrc:/shaders/billboards.geom")));
-    billboardShaderProgram->setFragmentShaderCode(Qt3DRender::QShaderProgram::loadSource(QUrl("qrc:/shaders/billboards.frag")));
-    billboardRenderPass->setShaderProgram(billboardShaderProgram);
-    billboardTechnique->addRenderPass(billboardRenderPass);
-    billboardEffect->addTechnique(billboardTechnique);
-    billboardMaterial->setEffect(billboardEffect);
-
-    billboardEntity->addComponent(billboardRenderer);
-    billboardEntity->addComponent(billboardMaterial);
-    billboardEntity->addComponent(billboardTransform);
+    Qt3DCore::QEntity *billboard1 = createBillboard(root, QVector3D(1, 1, 0));
+    Qt3DCore::QEntity *billboard2 = createBillboard(root, QVector3D(1, 4, 0));
+    Qt3DCore::QEntity *billboard3 = createBillboard(root, QVector3D(2, 1, 0));
+    Qt3DCore::QEntity *billboard4 = createBillboard(root, QVector3D(1, 1, 1));
+    Qt3DCore::QEntity *billboard5 = createBillboard(root, QVector3D(1, 1, 5));
+    Qt3DCore::QEntity *billboard6 = createBillboard(root, QVector3D(1, 2, 7));
+    Qt3DCore::QEntity *billboard7 = createBillboard(root, QVector3D(5, 3, 1));
 
     Qt3DExtras::Qt3DWindow view;
     view.resize(windowWidth, windowHeight);
@@ -172,8 +170,6 @@ int main(int argc, char* argv[])
     renderer->setClearColor("black");
 
     Qt3DRender::QCamera *camera = view.camera();
-    QObject::connect(camera, &Qt3DRender::QCamera::upVectorChanged, [camera, cameraUpParameter](){cameraUpParameter->setValue(camera->upVector());});
-    QObject::connect(camera, &Qt3DRender::QCamera::positionChanged, [camera, cameraPosParameter](){cameraPosParameter->setValue(camera->position());});
     camera->setProjectionType(Qt3DRender::QCameraLens::PerspectiveProjection);
     camera->setFieldOfView(45);
     // Cast to float to ensure float division
@@ -189,6 +185,7 @@ int main(int argc, char* argv[])
 
     view.setTitle("Billboards");
     view.show();
+
 
     return app.exec();
 }
